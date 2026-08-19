@@ -8,7 +8,9 @@ def _normalize(text: str) -> str:
 
 def is_chunk_correct(chunk: dict, question: dict) -> bool:
 
-    valid_docs = [d.strip() for d in question["source_doc"].split(";")]
+    valid_docs = [
+        d.strip() for d in question["source_doc"].split(";")
+    ]
 
     if chunk.get("doc_id") not in valid_docs:
         return False
@@ -41,7 +43,10 @@ def mrr(results: dict[str, list[dict]], questions: list[dict], k: int | None = N
             retrieved = retrieved[:k]
 
         rank = next(
-            (i + 1 for i, c in enumerate(retrieved) if is_chunk_correct(c, q)),
+            (
+                i + 1 for i, c in enumerate(retrieved) 
+                    if is_chunk_correct(c, q)
+            ),
             None
         )
 

@@ -31,16 +31,9 @@ class Chunk:
 
 def validate_chunk(text, model_tokenizer, max_tokens):
 
-    tokens = model_tokenizer.encode(text)
+    tokens = model_tokenizer.encode(text, add_special_tokens=False, truncation=True)
 
-    if len(tokens) > max_tokens:
-        logger.warning(f"Chunk too long: {len(tokens)} tokens")
-
-        return False
-
-    logger.info(f"Chunk is valid: {len(tokens)} tokens")
-
-    return True
+    return model_tokenizer.decode(tokens)
 
 def load_corpus(corpus_dir: str | None = None) -> list[SourceDoc]:
 
@@ -84,15 +77,14 @@ def chunk_documents(docs: list[SourceDoc], chunk_size: int, chunk_overlap: int) 
 
         for i, piece in enumerate(pieces):
             
-            if not validate_chunk(piece, embedder.tokenizer, embedder.max_seq_length):
-                continue
+            validated_piece = validate_chunk(piece, embedder.tokenizer, embedder.max_seq_length)
 
             chunks.append(
                 Chunk(
                     chunk_id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{doc.doc_id}#{i}")),
                     doc_id=doc.doc_id,
                     library=doc.library,
-                    text=piece,
+                    text=validated_piece,
                     chunk_index=i,
                 )
             )

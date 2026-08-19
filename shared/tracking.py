@@ -14,9 +14,11 @@ def _sanitize(name: str) -> str:
     return name.replace("@", "_at_")
 
 def log_metrics(metrics: dict) -> None:
+
     numeric = {
         _sanitize(k): v for k, v in metrics.items() if isinstance(v, (int, float))
     }
+    
     if numeric:
         mlflow.log_metrics(numeric)
 
