@@ -8,7 +8,9 @@ def _normalize(text: str) -> str:
 
 def is_chunk_correct(chunk: dict, question: dict) -> bool:
 
-    if chunk.get("doc_id") != question["source_doc"]:
+    valid_docs = [d.strip() for d in question["source_doc"].split(";")]
+
+    if chunk.get("doc_id") not in valid_docs:
         return False
 
     chunk_text = _normalize(chunk.get("text", ""))

@@ -8,13 +8,12 @@ from shared.ingest import build_qdrant_client, chunk_documents, index_chunks, lo
 from shared.retrieval import dense_search
 from shared.tracking import log_metrics, tracked_run
 
-CHUNK_SIZES = [16, 32, 64, 128, 256, 512]
+CHUNK_SIZES = [128, 256, 512]
 OVERLAP_FRACS = [0.0, 0.10, 0.25, 0.50]
 K_MAX = 10
 COLLECTION = "exp_chunking"
 
 OUT_DIR = Path(__file__).resolve().parent
-
 
 def run_config(docs, questions, chunk_size: int, overlap_frac: int):
 
@@ -102,7 +101,6 @@ def main():
     )
     print(f"\nMejor config: chunk_size={best['chunk_size']} overlap={best['overlap_frac']:.0%} "
           f"(recall@5={best['recall@5']:.3f}) -> guardado en 01-chunking/best_config.json")
-
 
 if __name__ == "__main__":
     main()

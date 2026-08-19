@@ -149,8 +149,7 @@ def index_chunks(
             [
                 c.text for c in batch
             ], 
-            normalize_embeddings=True,
-            show_progress_bar=True
+            normalize_embeddings=True
         )
 
         points = [
