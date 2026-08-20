@@ -1,5 +1,7 @@
 # Experimento 1 — Chunking
 
+| Tracking: los 9 runs quedaron alojados en MLflow, un run por combinación de `chunk_size`/`overlap`.
+
 Se probaron distintas combinaciones de `chunk_size` (128, 256 y 512) y `overlap` (0%, 10% y 25%). En total, fueron 9 configuraciones evaluadas sobre un conjunto fijo de preguntas con respuestas conocidas (gold spans).
 
 ## Resultado

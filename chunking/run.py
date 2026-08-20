@@ -6,14 +6,21 @@ import logging
 
 from shared.eval.data import load_questions
 from shared.eval.metrics import bootstrap_ci, is_chunk_correct, latency_summary, mrr, recall_at_k
-from shared.ingest import build_qdrant_client, chunk_documents, index_chunks, load_corpus
+from shared.ingest import (
+    build_qdrant_client, 
+    chunk_documents, 
+    corpus_hash, 
+    index_chunks, 
+    load_corpus, 
+    qualified_collection_name
+)
 from shared.retrieval import dense_search
 from shared.tracking import log_metrics, tracked_run
 
 CHUNK_SIZES = [128, 256, 512]
 OVERLAP_FRACS = [0.0, 0.10, 0.25]
 K_MAX = 10
-COLLECTION = "exp_chunking"
+COLLECTION = qualified_collection_name("exp_chunking")
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +32,17 @@ def run_config(docs, questions, chunk_size: int, overlap_frac: int):
 
     client = build_qdrant_client()
     chunks = chunk_documents(docs, chunk_size, overlap)
-    n_indexed = index_chunks(client, chunks, COLLECTION)
+    n_indexed = index_chunks(
+        client,
+        chunks,
+        COLLECTION,
+        {
+            "chunk_size": chunk_size,
+            "chunk_overlap": overlap,
+            "corpus_hash": corpus_hash(docs),
+            "experiment": "exp_chunking",
+        },
+    )
 
     results = {}
     latencies = []
@@ -101,7 +118,10 @@ def main():
 
     (OUT_DIR / "best_config.json").write_text(
         json.dumps(
-            {"chunk_size": best["chunk_size"], "chunk_overlap": best["overlap_tokens"]}, indent=2
+            {
+                "chunk_size": best["chunk_size"], 
+                "chunk_overlap": best["overlap_tokens"]
+            }, indent=2
         ),
         encoding="utf-8",
     )

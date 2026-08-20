@@ -15,4 +15,6 @@ shared/.qdrant_local/
 
 *.log
 
+embedder_cache/
+
 shared/corpus/music-tagger/

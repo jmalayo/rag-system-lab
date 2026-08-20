@@ -1,0 +1,21 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  embedder:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    ports:
+      - "1010:80"
+    volumes:
+      - ./embedder_cache/models--sentence-transformers--paraphrase-multilingual-MiniLM-L12-v2:/data/model
+    environment:
+      - HF_HUB_OFFLINE=1
+    command: --model-id /data/model
+  
+volumes:
+  qdrant_storage:
+  embedder_cache:

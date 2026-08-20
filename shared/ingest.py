@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import functools
+import hashlib
 import re
 import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+import requests
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient, models
 
@@ -58,6 +62,16 @@ def load_corpus(corpus_dir: str | None = None) -> list[SourceDoc]:
 
     return docs
 
+def corpus_hash(docs: list[SourceDoc]) -> str:
+
+    data = (
+        "".join(
+                f"{d.doc_id}:{d.text}" 
+                    for d in sorted(docs, key=lambda d: d.doc_id)
+            )
+        )
+    
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 def chunk_documents(docs: list[SourceDoc], chunk_size: int, chunk_overlap: int) -> list[Chunk]:
 
@@ -91,16 +105,96 @@ def chunk_documents(docs: list[SourceDoc], chunk_size: int, chunk_overlap: int) 
             
     return chunks
     
+class RemoteEmbedder:
+
+    def __init__(self, url: str, local_model):
+        self._url = url.rstrip("/")
+        self._local = local_model
+        self.tokenizer = local_model.tokenizer
+        self.max_seq_length = local_model.max_seq_length
+
+    def get_sentence_embedding_dimension(self):
+        return self._local.get_sentence_embedding_dimension()
+
+    _MAX_CLIENT_BATCH = 32
+
+    def encode(self, texts, normalize_embeddings=False):
+
+        single = isinstance(texts, str)
+        inputs = [texts] if single else list(texts)
+
+        embeddings = []
+
+        for start in range(0, len(inputs), self._MAX_CLIENT_BATCH):
+            
+            batch = inputs[start : start + self._MAX_CLIENT_BATCH]
+
+            resp = requests.post(
+                f"{self._url}/embed",
+                json={
+                    "inputs": batch, 
+                    "truncate": True
+                }
+            )
+
+            resp.raise_for_status()
+
+            embeddings.extend(resp.json())
+
+        vectors = np.array(embeddings, dtype=np.float32)
+
+        if normalize_embeddings:
+            norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+            vectors = vectors / np.clip(norms, 1e-12, None)
+
+        return vectors[0] if single else vectors
+
+
+@functools.lru_cache(maxsize=1)
 def get_embedder():
 
     from sentence_transformers import SentenceTransformer
 
-    return SentenceTransformer(settings.embedding_model)
+    local_model = SentenceTransformer(settings.embedding_model)
 
+    if settings.embedder_mode == "server":
+        return RemoteEmbedder(settings.embedder_url, local_model)
+
+    return local_model
+
+
+_CORE_PAYLOAD_KEYS = ["chunk_id", "text", "doc_id", "library", "chunk_index"]
+
+def qualified_collection_name(base_name: str) -> str:
+
+    model_tag = settings.embedding_model.replace("/", "--")
+
+    return f"{base_name}__{model_tag}"
+
+def get_current_config(client: QdrantClient, collection_name: str) -> dict | None:
+
+    if not client.collection_exists(collection_name):
+        return None
+
+    points, _ = client.scroll(
+        collection_name=collection_name,
+        limit=1,
+        with_payload=True,
+    )
+
+    if not points:
+        return None
+
+    return {
+        k: v 
+            for k, v in points[0].payload.items() 
+                if k not in _CORE_PAYLOAD_KEYS
+    }
 
 def build_qdrant_client(local_path: str | None = None) -> QdrantClient:
 
     if settings.qdrant_mode == "server":
+
         return QdrantClient(
             host=settings.qdrant_host, 
             port=settings.qdrant_port
@@ -111,11 +205,11 @@ def build_qdrant_client(local_path: str | None = None) -> QdrantClient:
             if local_path else QdrantClient(":memory:")
     )
 
-
 def index_chunks(
     client: QdrantClient,
     chunks: list[Chunk],
     collection_name: str,
+    config: dict,
     batch_size: int = 64,
 ) -> int:
 
@@ -154,6 +248,7 @@ def index_chunks(
                     "doc_id": c.doc_id,
                     "library": c.library,
                     "chunk_index": c.chunk_index,
+                    **config,
                 },
             )
             for c, vector in zip(batch, vectors)
@@ -167,4 +262,3 @@ def index_chunks(
         total += len(points)
 
     return total
-
