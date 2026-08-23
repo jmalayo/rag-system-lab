@@ -64,19 +64,25 @@ class BM25Index:
 
         self._avgdl = sum(self._doc_len) / len(self._doc_len) if doc_tokens else 0.0
 
-        self._term_freqs = [Counter(toks) for toks in doc_tokens]
+        self._term_freqs = [
+            Counter(toks) 
+                for toks in doc_tokens
+        ]
 
         df: Counter = Counter()
+
         for toks in doc_tokens:
             df.update(set(toks))
 
         n = len(chunks)
         self._idf = {
-            term: math.log(1 + (n - freq + 0.5) / (freq + 0.5))
+            term: math.log(
+                1 + (n - freq + 0.5) / (freq + 0.5)
+            )
             for term, freq in df.items()
         }
 
-    def _tokenize(text: str) -> list[str]:
+    def _tokenize(self, text: str) -> list[str]:
         
         return text.lower().split()
         
@@ -88,17 +94,22 @@ class BM25Index:
         query_terms = self._tokenize(query)
         scores = [0.0] * len(self._chunks)
 
-        for i, (tf, dl) in enumerate(zip(self._term_freqs, self._doc_len)):
+        for i, (term_freqs, doc_len) in enumerate(zip(self._term_freqs, self._doc_len)):
 
             score = 0.0
             for term in query_terms:
 
-                freq = tf.get(term)
+                freq = term_freqs.get(term)
+
                 if not freq:
                     continue
 
                 idf = self._idf.get(term, 0.0)
-                norm = self._k1 * (1 - self._b + self._b * dl / self._avgdl) if self._avgdl else self._k1
+
+                norm = (
+                    self._k1 * (1 - self._b + self._b * doc_len / self._avgdl) if self._avgdl else self._k1
+                )
+
                 score += idf * (freq * (self._k1 + 1)) / (freq + norm)
 
             scores[i] = score
@@ -106,7 +117,8 @@ class BM25Index:
         ranked = sorted(range(len(self._chunks)), key=lambda i: scores[i], reverse=True)[:k]
 
         return [
-            {**self._chunks[i], "score": scores[i]}
+            {
+                **self._chunks[i], "score": scores[i]}
             for i in ranked
         ]
 
