@@ -6,7 +6,7 @@ from pathlib import Path
 import logging
 
 from shared.eval.data import load_questions
-from shared.eval.metrics import bootstrap_ci, is_chunk_correct, latency_summary, mrr, recall_at_k
+from shared.eval.metrics import bootstrap_ci, calculate_hit5, is_chunk_correct, latency_summary, mrr, recall_at_k
 from shared.ingest import (
     build_qdrant_client,
     chunk_documents,
@@ -17,31 +17,23 @@ from shared.ingest import (
     qualified_collection_name,
 )
 from shared.retrieval import BM25Index, dense_search, fetch_all_chunks, reciprocal_rank_fusion
-from shared.tracking import log_metrics, tracked_run
+from shared.tracking import get_best_run, log_metrics, tracked_run
 
 K_MAX = 10
 COLLECTION = qualified_collection_name("exp_hybrid_search")
 OUT_DIR = Path(__file__).resolve().parent
 
-BEST_CHUNKING = json.loads(
-    (OUT_DIR.parent / "chunking" / "best_config.json").read_text()
-)
+_best_chunking_run = get_best_run("chunking")
+BEST_CHUNKING = {
+    "chunk_size": int(_best_chunking_run["metrics.chunk_size"]),
+    "chunk_overlap": int(_best_chunking_run["metrics.overlap_tokens"]),
+}
 
 logger = logging.getLogger(__name__)
 
 def evaluate(name: str, results: dict, questions: list, latencies: list) -> dict:
 
-    per_q_hit5 = [
-        1.0 
-            if any(
-                is_chunk_correct(c, q) 
-                    for c in results[q["id"]][:5]
-                ) 
-            else 0.0
-        for q in questions
-    ]
-    
-    ci_low, ci_high = bootstrap_ci(per_q_hit5)
+    ci_low, ci_high = bootstrap_ci(calculate_hit5(results, questions))
 
     return {
         "method": name,
@@ -140,20 +132,12 @@ def main():
         evaluate("hybrid_rrf", hybrid_results, questions, hybrid_lat),
     ]
 
-    with tracked_run("02-hybrid-search", "sweep", BEST_CHUNKING):
-        for row in rows:
-            log_metrics({f"{row['method']}_{k}": v for k, v in row.items()})
+    for row in rows:
+        with tracked_run("hybrid-search", row["method"], {**BEST_CHUNKING, "method": row["method"]}):
+            log_metrics(row)
 
     rows.sort(key=lambda r: r["recall@5"], reverse=True)
     best = rows[0]
-
-    (OUT_DIR / "results" / "best_method.json").write_text(
-        json.dumps(
-            {
-                "method": best["method"]
-            }, indent=2
-        )
-    )
 
     dense_row = next(r for r in rows if r["method"] == "dense")
     delta = best["recall@5"] - dense_row["recall@5"]
@@ -188,7 +172,7 @@ def main():
         print(f"{r['method']:>10}: recall@5={r['recall@5']:.3f} mrr@10={r['mrr@10']:.3f} "
               f"p50={r['p50_ms']}ms")
 
-    print(f"\nMejor método: {best['method']} -> guardado en 02-hybrid-search/best_method.json")
+    print(f"\nMejor método: {best['method']} -> registrado en MLflow (rag-system-eval-hybrid-search), usar get_best_run('hybrid-search')")
 
 
 if __name__ == "__main__":

@@ -29,20 +29,20 @@ Todo vive en `shared/eval/metrics.py` (métricas) y `shared/retrieval.py` (scori
 - **Recall@k / MRR@k** — métricas estándar de IR: si el chunk correcto aparece entre los primeros k resultados (recall), y en qué posición (MRR, recíproco del rank).
 - **Bootstrap CI** (`bootstrap_ci`) — remuestreo con reemplazo (1000 veces) sobre los aciertos por pregunta para estimar un intervalo de confianza del 95% del recall, sin asumir una distribución normal.
 - **BM25 / Okapi BM25** (`BM25Index`) — el término `log(1 + (n - freq + 0.5) / (freq + 0.5))` es el **IDF (Inverse Document Frequency)** de la fórmula Okapi BM25: penaliza términos que aparecen en muchos documentos, con logaritmo para que el efecto se aplane a medida que la frecuencia crece.
-- **RRF / Reciprocal Rank Fusion** (`reciprocal_rank_fusion`) — combina rankings distintos sumando `1/(k+rank+1)` por lista, en vez de sumar scores en escalas distintas (ver `hybrid-search/README.md`).
+- **RRF / Reciprocal Rank Fusion** (`reciprocal_rank_fusion`) — combina rankings distintos sumando `1/(k+rank+1)` por lista, en vez de sumar scores en escalas distintas (ver `experiments/hybrid-search/README.md`).
 
 
 
 ## Experimentos realizados
 
-- **Experimento 1 (chunking)** — resuelto. Reporte en `chunking/EXP_CHUNKING_REPORT.md`, resultado del barrido en `chunking/results/best_config.json`.
-- **Experimento 2 (hybrid search)** — resuelto. Reporte en `hybrid-search/EXP_RRF_REPORT.md`, resultados en `hybrid-search/results/` (`best_method.json`, `results.json`).
+- **Experimento 1 (chunking)** — resuelto. Reporte en `experiments/chunking/EXP_CHUNKING_REPORT.md`, resultado del barrido en `experiments/chunking/results/best_config.json`.
+- **Experimento 2 (hybrid search)** — resuelto. Reporte en `experiments/hybrid-search/EXP_RRF_REPORT.md`, resultados en `experiments/hybrid-search/results/` (`best_method.json`, `results.json`).
 
 La carpeta se renombró de `hybrid-serach` a `hybrid-search` (typo corregido) y los resultados de cada experimento ahora viven en su propia subcarpeta `results/` en vez de sueltos junto al `run.py`.
 
 ## Estructura
 
 - `shared/` — código común: ingesta/chunking, retrieval (dense, BM25, RRF), tracking, settings, y el set de evaluación (`shared/eval`).
-- `chunking/` — experimento 1: barrido de `chunk_size`/`overlap`.
-- `hybrid-search/` — experimento 2: dense vs. BM25 vs. fusión híbrida (RRF).
+- `experiments/chunking/` — experimento 1: barrido de `chunk_size`/`overlap`.
+- `experiments/hybrid-search/` — experimento 2: dense vs. BM25 vs. fusión híbrida (RRF).
 

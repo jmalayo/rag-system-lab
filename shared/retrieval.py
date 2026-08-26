@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from shared.settings import settings
 import math
 import re
 from collections import Counter
@@ -153,4 +154,32 @@ def reciprocal_rank_fusion(
             **payloads[cid], 
             "rrf_score": scores[cid]
         } for cid in fused_ids
+    ]
+
+def rerank(question: str, candidates: list[dict], top_k: int) -> list[dict]:
+
+    from sentence_transformers import CrossEncoder
+
+    if not candidates:
+        return []
+
+    _reranker = CrossEncoder(settings.cross_encoder_model)
+
+    scores = _reranker.predict(
+        [
+            (question, c["text"]) 
+                for c in candidates
+        ],
+        batch_size=16,
+        show_progress_bar=True
+    )
+
+    order = sorted(range(len(candidates)), key=lambda i: scores[i], reverse=True)[:top_k]
+
+    return [
+        {
+            **candidates[i], 
+            "rerank_score": scores[i]
+        }
+        for i in order
     ]
