@@ -18,3 +18,5 @@ shared/.qdrant_local/
 embedder_cache/
 
 shared/corpus/music-tagger/
+
+definition

@@ -114,14 +114,19 @@ class BM25Index:
 
             scores[i] = score
 
-        ranked = sorted(range(len(self._chunks)), key=lambda i: scores[i], reverse=True)[:k]
+        ranked = sorted(
+            range(len(self._chunks)), 
+            key=lambda i: scores[i], 
+            reverse=True
+        )[:k]
 
         return [
             {
-                **self._chunks[i], "score": scores[i]}
+                **self._chunks[i], 
+                "score": scores[i]
+            }
             for i in ranked
         ]
-
 
 def reciprocal_rank_fusion(
     rankings: list[list[dict]], 

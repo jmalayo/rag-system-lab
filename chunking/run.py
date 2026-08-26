@@ -116,7 +116,7 @@ def main():
     rows.sort(key=lambda r: (r["recall@5"], r["mrr@10"]), reverse=True)
     best = rows[0]
 
-    (OUT_DIR / "best_config.json").write_text(
+    (OUT_DIR / "results" / "best_config.json").write_text(
         json.dumps(
             {
                 "chunk_size": best["chunk_size"], 

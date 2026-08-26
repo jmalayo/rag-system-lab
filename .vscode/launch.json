@@ -23,6 +23,16 @@
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "justMyCode": true
+        },
+        {
+            "name": "Python: hybrid-search/run.py (como módulo)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "hybrid-search.run",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true
         }
     ]
 }

@@ -32,11 +32,17 @@ logger = logging.getLogger(__name__)
 def evaluate(name: str, results: dict, questions: list, latencies: list) -> dict:
 
     per_q_hit5 = [
-        1.0 if any(is_chunk_correct(c, q) for c in results[q["id"]][:5]) else 0.0
+        1.0 
+            if any(
+                is_chunk_correct(c, q) 
+                    for c in results[q["id"]][:5]
+                ) 
+            else 0.0
         for q in questions
     ]
     
     ci_low, ci_high = bootstrap_ci(per_q_hit5)
+
     return {
         "method": name,
         "recall@1": round(recall_at_k(results, questions, 1), 4),
@@ -141,7 +147,13 @@ def main():
     rows.sort(key=lambda r: r["recall@5"], reverse=True)
     best = rows[0]
 
-    (OUT_DIR / "best_method.json").write_text(json.dumps({"method": best["method"]}, indent=2))
+    (OUT_DIR / "results" / "best_method.json").write_text(
+        json.dumps(
+            {
+                "method": best["method"]
+            }, indent=2
+        )
+    )
 
     dense_row = next(r for r in rows if r["method"] == "dense")
     delta = best["recall@5"] - dense_row["recall@5"]
@@ -164,7 +176,7 @@ def main():
         "negative_finding": adopted == "dense" and best["method"] != "dense",
     }
     
-    (OUT_DIR / "results.json").write_text(
+    (OUT_DIR / "results" / "results.json").write_text(
         json.dumps(
             results, 
             indent=2, 
