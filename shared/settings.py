@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     mlflow_tracking_uri: str = "file:./mlflow/mlruns"
     mlflow_experiment_prefix: str = "rag-system-eval"
 
+    ollama_host: str = "http://127.0.0.1:11434"
+
     corpus_dir: str = "shared/corpus"
     questions_path: str = "shared/eval/questions.jsonl"
 

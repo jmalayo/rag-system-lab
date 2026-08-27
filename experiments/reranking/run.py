@@ -23,27 +23,26 @@ BEST_CHUNKING = {
 BEST_METHOD = get_best_run("hybrid-search")["params.method"]
 
 def base_search(
-    method: str = BEST_METHOD, 
     client: QdrantClient = None, 
     bm25: BM25Index = None, 
-    query: str = None, 
-    k: int = TOP_K
+    question: str = None,
+    k: int = POOL_SIZE
 ) -> list[dict]:
 
-    if method == "dense":
-        return dense_search(client, COLLECTION, query, k)
+    if BEST_METHOD == "dense":
+        return dense_search(client, COLLECTION, question, k)
 
-    if method == "bm25":
-        return bm25.search(query, k)
+    if BEST_METHOD == "bm25":
+        return bm25.search(question, k)
 
-    if method == "hybrid_rrf":
+    if BEST_METHOD == "hybrid_rrf":
 
-        d = dense_search(client, COLLECTION, query, k)
-        b = bm25.search(query,k)
+        d = dense_search(client, COLLECTION, question, k)
+        b = bm25.search(question, k)
 
         return reciprocal_rank_fusion([d, b], top_k=k)
 
-    raise ValueError(f"Invalid method: {method}")
+    raise ValueError(f"Invalid method: {BEST_METHOD}")
 
 def evaluate(name, results, questions, latencies):
 
@@ -80,7 +79,6 @@ def main():
         t0 = time.perf_counter()
 
         candidates = base_search(
-            method=BEST_METHOD, 
             client=client, 
             bm25=bm25, 
             query=q["question"], 

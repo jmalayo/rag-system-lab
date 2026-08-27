@@ -61,6 +61,12 @@ def mrr(results: dict[str, list[dict]], questions: list[dict], k: int | None = N
 
     return sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
 
+def groundedness_rate(verdicts: list[bool]) -> float:
+    raise NotImplementedError
+
+def hallucination_rate(verdicts: list[bool]) -> float:
+    raise NotImplementedError
+
 def percentile(values: list[float], p: float) -> float:
 
     if not values:
