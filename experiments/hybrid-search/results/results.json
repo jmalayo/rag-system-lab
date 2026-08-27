@@ -1,0 +1,60 @@
+{
+  "chunking_config": {
+    "chunk_size": 512,
+    "chunk_overlap": 128
+  },
+  "n_questions": 34,
+  "rows": [
+    {
+      "method": "hybrid_rrf",
+      "recall@1": 0.2353,
+      "recall@3": 0.4118,
+      "recall@5": 0.5294,
+      "recall@5_ci95": [
+        0.3529,
+        0.7059
+      ],
+      "recall@10": 0.6765,
+      "mrr@10": 0.3474,
+      "p50_ms": 18.4,
+      "p95_ms": 30.3,
+      "mean_ms": 341.3
+    },
+    {
+      "method": "bm25",
+      "recall@1": 0.2353,
+      "recall@3": 0.4412,
+      "recall@5": 0.5,
+      "recall@5_ci95": [
+        0.3529,
+        0.6765
+      ],
+      "recall@10": 0.5588,
+      "mrr@10": 0.3461,
+      "p50_ms": 0.5,
+      "p95_ms": 0.7,
+      "mean_ms": 0.5
+    },
+    {
+      "method": "dense",
+      "recall@1": 0.2647,
+      "recall@3": 0.3529,
+      "recall@5": 0.4706,
+      "recall@5_ci95": [
+        0.2941,
+        0.6471
+      ],
+      "recall@10": 0.5882,
+      "mrr@10": 0.3356,
+      "p50_ms": 17.8,
+      "p95_ms": 29.8,
+      "mean_ms": 340.8
+    }
+  ],
+  "best_method": "hybrid_rrf",
+  "dense_recall@5": 0.4706,
+  "delta_recall@5": 0.0588,
+  "latency_delta_p50_ms": 0.6,
+  "adopted_method": "hybrid_rrf",
+  "negative_finding": false
+}
