@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from shared.settings import settings
 import math
-import re
+import functools
+
 from collections import Counter
 
 from qdrant_client import QdrantClient
@@ -156,22 +157,27 @@ def reciprocal_rank_fusion(
         } for cid in fused_ids
     ]
 
-def rerank(question: str, candidates: list[dict], top_k: int) -> list[dict]:
+@functools.lru_cache(maxsize=1)
+def get_rerank():
 
     from sentence_transformers import CrossEncoder
 
+    return CrossEncoder(settings.cross_encoder_model)
+
+def rerank(question: str, candidates: list[dict], top_k: int) -> list[dict]:
+
     if not candidates:
         return []
+    
+    reranker = get_rerank()
 
-    _reranker = CrossEncoder(settings.cross_encoder_model)
-
-    scores = _reranker.predict(
+    scores = reranker.predict(
         [
             (question, c["text"]) 
                 for c in candidates
         ],
         batch_size=16,
-        show_progress_bar=True
+        show_progress_bar=False
     )
 
     order = sorted(range(len(candidates)), key=lambda i: scores[i], reverse=True)[:top_k]

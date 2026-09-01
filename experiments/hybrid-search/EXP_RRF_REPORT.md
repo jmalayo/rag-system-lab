@@ -11,12 +11,12 @@ Se partió de la mejor config de chunking del experimento anterior (`chunk_size=
 Guardado en `[best_method.json](./best_method.json)`.
 
 ```
-hybrid_rrf: recall@5=0.529 mrr@10=0.347 p50=17.0ms
-      bm25: recall@5=0.500 mrr@10=0.346 p50=0.4ms
-     dense: recall@5=0.471 mrr@10=0.336 p50=16.7ms
+hybrid_rrf: recall@5=0.529 mrr@10=0.347 p50=12.2ms
+      bm25: recall@5=0.500 mrr@10=0.346 p50=0.3ms
+     dense: recall@5=0.471 mrr@10=0.336 p50=11.9ms
 ```
 
-RRF combinando dense + BM25 supera a cada método por separado. Lo notable es que **BM25 solo queda muy cerca de dense** (0.500 vs 0.471) siendo **~40x más rápido** (p50 0.4ms vs 16.7ms, corre en memoria sin llamar al embedder). El híbrido paga el costo de ambas búsquedas (p50 17.0ms, dominado por el embedding) a cambio de +5.9 puntos de recall@5 sobre dense solo.
+RRF combinando dense + BM25 supera a cada método por separado. Lo notable es que **BM25 solo queda muy cerca de dense** (0.500 vs 0.471) siendo **~40x más rápido** (p50 0.3ms vs 11.9ms, corre en memoria sin llamar al embedder). El híbrido paga el costo de ambas búsquedas (p50 12.2ms, dominado por el embedding) a cambio de +5.9 puntos de recall@5 sobre dense solo.
 
 ## Cómo se evaluó
 

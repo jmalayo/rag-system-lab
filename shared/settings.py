@@ -14,9 +14,9 @@ class Settings(BaseSettings):
 
     cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
-    mlflow_tracking_uri: str = "file:./mlflow/mlruns"
     mlflow_experiment_prefix: str = "rag-system-eval"
-
+    mlflow_tracking_uri: str = "http://127.0.0.1:5000/"
+    
     ollama_host: str = "http://127.0.0.1:11434"
 
     corpus_dir: str = "shared/corpus"

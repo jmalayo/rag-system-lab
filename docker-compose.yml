@@ -8,6 +8,7 @@ services:
 
   embedder:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: text-embedder
     ports:
       - "1010:80"
     volumes:

@@ -16,9 +16,9 @@
       ],
       "recall@10": 0.6765,
       "mrr@10": 0.3474,
-      "p50_ms": 18.4,
-      "p95_ms": 30.3,
-      "mean_ms": 341.3
+      "p50_ms": 11.6,
+      "p95_ms": 13.4,
+      "mean_ms": 135.5
     },
     {
       "method": "bm25",
@@ -31,9 +31,9 @@
       ],
       "recall@10": 0.5588,
       "mrr@10": 0.3461,
-      "p50_ms": 0.5,
-      "p95_ms": 0.7,
-      "mean_ms": 0.5
+      "p50_ms": 0.3,
+      "p95_ms": 0.4,
+      "mean_ms": 0.3
     },
     {
       "method": "dense",
@@ -46,15 +46,15 @@
       ],
       "recall@10": 0.5882,
       "mrr@10": 0.3356,
-      "p50_ms": 17.8,
-      "p95_ms": 29.8,
-      "mean_ms": 340.8
+      "p50_ms": 11.3,
+      "p95_ms": 13.1,
+      "mean_ms": 135.1
     }
   ],
   "best_method": "hybrid_rrf",
   "dense_recall@5": 0.4706,
   "delta_recall@5": 0.0588,
-  "latency_delta_p50_ms": 0.6,
+  "latency_delta_p50_ms": 0.3,
   "adopted_method": "hybrid_rrf",
   "negative_finding": false
 }

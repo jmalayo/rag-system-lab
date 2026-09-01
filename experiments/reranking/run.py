@@ -81,7 +81,7 @@ def main():
         candidates = base_search(
             client=client, 
             bm25=bm25, 
-            query=q["question"], 
+            question=q["question"], 
             k=POOL_SIZE
         )
 

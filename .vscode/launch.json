@@ -2,20 +2,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: archivo actual",
+            "name": "py-file: current-file",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            },
             "envFile": "${workspaceFolder}/.env",
             "justMyCode": true
         },
         {
-            "name": "Python: chunking/run.py (como módulo)",
+            "name": "py-module: chunking/run.py",
             "type": "debugpy",
             "request": "launch",
             "module": "experiments.chunking.run",
@@ -25,10 +22,20 @@
             "justMyCode": true
         },
         {
-            "name": "Python: hybrid-search/run.py (como módulo)",
+            "name": "py-module: hybrid-search/run.py",
             "type": "debugpy",
             "request": "launch",
             "module": "experiments.hybrid-search.run",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true
+        },
+        {
+            "name": "py-module: reranking/run.py",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "experiments.reranking.run",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
