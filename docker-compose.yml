@@ -17,7 +17,9 @@ services:
     command: --model-id /data/model
 
   ollama:
+    restart: unless-stopped
     image: ollama/ollama:latest
+    container_name: ollama
     ports:
       - "11434:11434"
     volumes:
@@ -27,8 +29,39 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-  
+
+  ollama-pull:
+    restart: no
+    image: ollama/ollama:latest
+    container_name: llama3-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["ollama"]
+    command: ["pull", "llama3.2:3b"]
+    environment:
+      OLLAMA_HOST: "ollama:11434"
+
+  mlflow-server:
+    restart: unless-stopped
+    image: ghcr.io/mlflow/mlflow:v3.15.2
+    container_name: mlflow-server
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/mlartifacts
+    environment:
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+      - MLFLOW_EXPERIMENT_NAME=${MLFLOW_EXPERIMENT_NAME}
+
 volumes:
   qdrant_storage:
   embedder_cache:
   ollama_data:
+  mlflow_data:
