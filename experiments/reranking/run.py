@@ -12,7 +12,7 @@ from qdrant_client import QdrantClient
 
 POOL_SIZE = 20  # cuántos candidatos trae el retriever base antes de rerankear
 TOP_K = 5
-COLLECTION = "reranking"
+COLLECTION = "exp_reranking"
 OUT_DIR = Path(__file__).resolve().parent
 
 _best_chunking_run = get_best_run("chunking")

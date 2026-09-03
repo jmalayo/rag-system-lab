@@ -29,17 +29,28 @@ def dense_search(client: QdrantClient, collection_name: str, query: str, k: int)
 
 def fetch_all_chunks(client: QdrantClient, collection_name: str) -> list[dict]:
 
-    points, _ = client.scroll(
-        collection_name=collection_name,
-        scroll_filter=None,
-        limit=1000000,
-        with_payload=True
-    )
+    limit_batch = 200
+    ls_records = []
+    next_offset = None
 
-    return [
-        p.payload 
-            for p in points
-    ]
+    while True:
+        records, next_offset = client.scroll(
+            collection_name=collection_name,
+            scroll_filter=None,
+            limit=limit_batch,
+            with_vectors=False,
+            with_payload=True,
+            offset=next_offset
+        )
+
+        ls_records.extend(records)
+
+        if next_offset is None:
+            
+            return [
+                rc.payload 
+                    for rc in ls_records
+            ]
 
 class BM25Index:
 

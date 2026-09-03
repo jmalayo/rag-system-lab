@@ -4,23 +4,27 @@ from pathlib import Path
 
 import logging
 
+import numpy as np
+import requests
+
 from shared.eval.data import load_questions
 from shared.eval.metrics import bootstrap_ci, is_chunk_correct, latency_summary, mrr, recall_at_k
 from shared.ingest import (
-    build_qdrant_client, 
-    chunk_documents, 
-    corpus_hash, 
-    index_chunks, 
-    load_corpus, 
+    build_qdrant_client,
+    chunk_documents,
+    corpus_hash,
+    index_chunks,
+    load_corpus,
     qualified_collection_name
 )
 from shared.retrieval import dense_search
+from shared.settings import settings
 from shared.tracking import log_metrics, tracked_run
 
-CHUNK_SIZES = [128, 256, 512]
 OVERLAP_FRACS = [0.0, 0.10, 0.25]
+SAFETY_MARGIN = 0.85
 K_MAX = 10
-COLLECTION = qualified_collection_name("exp_chunking")
+COLLECTION = qualified_collection_name("exp_chunking_dynamic")
 
 logger = logging.getLogger(__name__)
 
@@ -79,24 +83,83 @@ def run_config(docs, questions, chunk_size: int, overlap_frac: int):
 
     return row
 
+def count_tokens(text: str) -> int:
+
+    resp = requests.post(f"{settings.text_embedder_url}/tokenize", json={"inputs": text})
+    resp.raise_for_status()
+
+    return len(resp.json()[0])
+
+def evaluate_chunks_limits(sample_text: str) -> list[int]:
+
+    info_embedder = requests.get(f"{settings.text_embedder_url}/info").json()
+    cap_tokens = info_embedder["max_input_length"] * SAFETY_MARGIN
+
+    sizes = []
+    exponent = 7
+
+    while True:
+        candidate = 2 ** exponent
+
+        chunks_tokens = np.array([
+            count_tokens(sample_text[i:i+candidate])
+                for i in range(0, len(sample_text), candidate)
+        ])
+
+        p95_tokens = np.percentile(chunks_tokens, 95)
+
+        if candidate >= len(sample_text) or p95_tokens > cap_tokens:
+            break
+
+        sizes.append(candidate)
+
+        exponent += 1
+
+    lo_candidate, hi_candidate = (sizes[-1] if sizes else 0), candidate
+
+    while hi_candidate - lo_candidate > 1:
+        mid = (lo_candidate + hi_candidate) // 2
+
+        chunks_tokens = np.array([
+            count_tokens(sample_text[i:i+mid])
+                for i in range(0, len(sample_text), mid)
+        ])
+
+        p95_tokens = np.percentile(chunks_tokens, 95)
+
+        if p95_tokens <= cap_tokens:
+            lo_candidate = mid
+        else:
+            hi_candidate = mid
+
+    if lo_candidate and lo_candidate not in sizes:
+        sizes.append(lo_candidate)
+
+    return sizes
+
 def main():
 
     docs = load_corpus()
     questions = load_questions()
 
+    chunk_sizes = evaluate_chunks_limits("".join(d.text for d in docs))
+
+    logger.info(f"chunk sizes dinámicos: {chunk_sizes}")
+
     rows = []
 
-    for chunk_size in CHUNK_SIZES:
+    for chunk_size in chunk_sizes:
 
         for overlap_frac in OVERLAP_FRACS:
 
             with tracked_run(
-                "chunking",
+                "chunking_dynamic",
                 f"cs{chunk_size}_ov{int(overlap_frac*100)}",
                 {
                     "chunk_size": chunk_size, 
                     "overlap_frac": overlap_frac
                 }
+
             ) as run:
 
                 logger.info(f"Running config: chunk_size={chunk_size} overlap_frac={overlap_frac}")

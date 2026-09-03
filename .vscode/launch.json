@@ -40,6 +40,16 @@
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "justMyCode": true
+        },
+        {
+            "name": "py-module: evaluation/run.py",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "experiments.evaluation.run",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true
         }
     ]
 }

@@ -12,6 +12,7 @@ import numpy as np
 import requests
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient, models
+from transformers import AutoConfig, AutoTokenizer
 
 from shared.settings import settings
 
@@ -107,14 +108,14 @@ def chunk_documents(docs: list[SourceDoc], chunk_size: int, chunk_overlap: int) 
     
 class RemoteEmbedder:
 
-    def __init__(self, url: str, local_model):
+    def __init__(self, url: str, model_name: str):
         self._url = url.rstrip("/")
-        self._local = local_model
-        self.tokenizer = local_model.tokenizer
-        self.max_seq_length = local_model.max_seq_length
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.max_seq_length = requests.get(f"{self._url}/info").json()["max_input_length"]
+        self._dim = AutoConfig.from_pretrained(model_name).hidden_size
 
-    def get_sentence_embedding_dimension(self):
-        return self._local.get_sentence_embedding_dimension()
+    def get_dimension(self):
+        return self._dim
 
     _MAX_CLIENT_BATCH = 32
 
@@ -153,17 +154,18 @@ class RemoteEmbedder:
 @functools.lru_cache(maxsize=1)
 def get_embedder():
 
+    if settings.text_embedder_mode == "server":
+        return RemoteEmbedder(
+            url=settings.text_embedder_url,
+            model_name=f"sentence-transformers/{settings.embedding_model}"
+        )
+
     from sentence_transformers import SentenceTransformer
 
-    local_model = SentenceTransformer(settings.embedding_model)
-
-    if settings.embedder_mode == "server":
-        return RemoteEmbedder(settings.embedder_url, local_model)
-
-    return local_model
-
-
-_CORE_PAYLOAD_KEYS = ["chunk_id", "text", "doc_id", "library", "chunk_index"]
+    return SentenceTransformer(
+        model_name_or_path=settings.embedding_model, 
+        device="cpu"
+    )
 
 def qualified_collection_name(base_name: str) -> str:
 
@@ -180,6 +182,7 @@ def get_current_config(client: QdrantClient, collection_name: str) -> dict | Non
         collection_name=collection_name,
         limit=1,
         with_payload=True,
+        with_vectors=False
     )
 
     if not points:
@@ -188,7 +191,7 @@ def get_current_config(client: QdrantClient, collection_name: str) -> dict | Non
     return {
         k: v 
             for k, v in points[0].payload.items() 
-                if k not in _CORE_PAYLOAD_KEYS
+                if k not in ["chunk_id", "text", "doc_id", "library", "chunk_index"]
     }
 
 def build_qdrant_client(local_path: str | None = None) -> QdrantClient:
@@ -214,7 +217,7 @@ def index_chunks(
 ) -> int:
 
     embedder = get_embedder()
-    dim = embedder.get_sentence_embedding_dimension()
+    dim = embedder.get_dimension()
 
     if client.collection_exists(collection_name):
         client.delete_collection(collection_name)

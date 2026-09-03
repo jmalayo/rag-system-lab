@@ -6,17 +6,14 @@ from shared.eval.data import load_questions
 from shared.eval.metrics import bootstrap_ci, groundedness_rate, hallucination_rate, latency_summary
 from shared.ingest import build_qdrant_client, chunk_documents, index_chunks, load_corpus
 from shared.llm import generate
-from shared.retrieval import BM25Index, dense_search, fetch_all_chunks, reciprocal_rank_fusion, rerank
+from shared.retrieval import BM25Index, fetch_all_chunks, rerank
 from shared.tracking import get_best_run, log_metrics, tracked_run
 
 from experiments.evaluation.prompts import ANSWER_PROMPT, GROUNDEDNESS_PROMPT, RELEVANCE_PROMPT
 
-from experiments.reranking.run import base_search
-from qdrant_client import QdrantClient
+from experiments.reranking.run import base_search, POOL_SIZE, TOP_K
 
-TOP_K_CONTEXT = 5
-CANDIDATE_POOL = 20
-COLLECTION = "evaluation"
+COLLECTION = "exp_evaluation"
 OUT_DIR = Path(__file__).resolve().parent
 
 _best_chunking_run = get_best_run("chunking")
@@ -25,21 +22,23 @@ BEST_CHUNKING = {
     "chunk_size": int(_best_chunking_run["metrics.chunk_size"]),
     "chunk_overlap": int(_best_chunking_run["metrics.overlap_tokens"]),
 }
+
 BEST_METHOD = get_best_run("hybrid-search")["params.method"]
 USE_RERANKER = get_best_run("reranking")["params.use_reranker"] == "True"
 
 def retrieve_context(client, bm25, question: str) -> list[dict]:
 
-    candidates = base_search(client, bm25, question, CANDIDATE_POOL)
+    candidates = base_search(client, bm25, question, POOL_SIZE)
 
     if USE_RERANKER:
-        return rerank(question, candidates, TOP_K_CONTEXT)
+        return rerank(question, candidates, TOP_K)
 
-    return candidates[:TOP_K_CONTEXT]
+    return candidates[:TOP_K]
 
 def judge_yes(prompt: str) -> bool:
     reply = generate(prompt, max_new_tokens=5).strip().upper()
     return reply.startswith("S")
+
 
 
 def main():
@@ -59,41 +58,16 @@ def main():
     grounded_verdicts, relevant_verdicts, gen_latencies = [], [], []
     per_question_rows = []
 
-    for i, q in enumerate(questions, 1):
+    for q in questions:
 
         context_chunks = retrieve_context(client, bm25, q["question"])
-        
         context_text = "\n\n".join(
-            f"[{c['doc_id']}] {c['text']}"  
-                for c in context_chunks
+            [f"[{c['doc_id']}] {c['text']}" for c in context_chunks]
         )
 
-        t0 = time.perf_counter()
+        answer = generate(ANSWER_PROMPT.format(context=context_text, question=q["question"]))
 
-        answer = generate(
-            ANSWER_PROMPT.format(
-                context=context_text, 
-                question=q["question"]
-            )
-        )
-        
-        gen_latencies.append((time.perf_counter() - t0) * 1000)
-
-        grounded = judge_yes(GROUNDEDNESS_PROMPT.format(context=context_text, answer=answer))
-        relevant = judge_yes(RELEVANCE_PROMPT.format(question=q["question"], answer=answer))
-
-        grounded_verdicts.append(grounded)
-        relevant_verdicts.append(relevant)
-        per_question_rows.append(
-            {
-                "id": q["id"],
-                "question": q["question"],
-                "answer": answer,
-                "grounded": grounded,
-                "relevant": relevant,
-            }
-        )
-        print(f"[{i}/{len(questions)}] {q['id']} grounded={grounded} relevant={relevant}")
+        pass
 
     g_rate = groundedness_rate(grounded_verdicts)
     h_rate = hallucination_rate(grounded_verdicts)

@@ -57,9 +57,6 @@ services:
       --port 5000
       --backend-store-uri sqlite:////mlflow/mlflow.db
       --default-artifact-root /mlflow/mlartifacts
-    environment:
-      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
-      - MLFLOW_EXPERIMENT_NAME=${MLFLOW_EXPERIMENT_NAME}
 
 volumes:
   qdrant_storage:
