@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
     llm_host: str = "http://127.0.0.1:11434"
+    llm_backend: str = "ollama"
+    llm_model_base: str = "llama3.2:3b"
+    llm_model_judge: str = "deepseek-r1:7b "
 
     mlflow_experiment_prefix: str = "rag-system-eval"
     mlflow_tracking_uri: str = "http://127.0.0.1:5000/"

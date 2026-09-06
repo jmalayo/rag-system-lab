@@ -26,18 +26,19 @@ def base_search(
     client: QdrantClient = None, 
     bm25: BM25Index = None, 
     question: str = None,
+    collection: str = COLLECTION,
     k: int = POOL_SIZE
 ) -> list[dict]:
 
     if BEST_METHOD == "dense":
-        return dense_search(client, COLLECTION, question, k)
+        return dense_search(client, collection, question, k)
 
     if BEST_METHOD == "bm25":
         return bm25.search(question, k)
 
     if BEST_METHOD == "hybrid_rrf":
 
-        d = dense_search(client, COLLECTION, question, k)
+        d = dense_search(client, collection, question, k)
         b = bm25.search(question, k)
 
         return reciprocal_rank_fusion([d, b], top_k=k)

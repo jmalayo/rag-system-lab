@@ -25,6 +25,16 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "30s"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/11434' || exit 1"]
       interval: 10s
@@ -40,6 +50,18 @@ services:
         condition: service_healthy
     entrypoint: ["ollama"]
     command: ["pull", "llama3.2:3b"]
+    environment:
+      OLLAMA_HOST: "ollama:11434"
+
+  ollama-pull-deepseek:
+    restart: no
+    image: ollama/ollama:latest
+    container_name: deepseek-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["ollama"]
+    command: ["pull", "deepseek-r1:7b"]
     environment:
       OLLAMA_HOST: "ollama:11434"
 

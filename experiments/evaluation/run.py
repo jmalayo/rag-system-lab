@@ -35,12 +35,6 @@ def retrieve_context(client, bm25, question: str) -> list[dict]:
 
     return candidates[:TOP_K]
 
-def judge_yes(prompt: str) -> bool:
-    reply = generate(prompt, max_new_tokens=5).strip().upper()
-    return reply.startswith("S")
-
-
-
 def main():
     docs = load_corpus()
     questions = load_questions()
@@ -67,7 +61,21 @@ def main():
 
         answer = generate(ANSWER_PROMPT.format(context=context_text, question=q["question"]))
 
-        pass
+        grounded = generate(GROUNDEDNESS_PROMPT.format(context=context_text, answer=answer))
+        
+        relevant = generate(RELEVANCE_PROMPT.format(question=q["question"], answer=answer))
+
+        grounded_verdicts.append(grounded)
+        relevant_verdicts.append(relevant)
+        per_question_rows.append(
+            {
+                "id": q["id"],
+                "question": q["question"],
+                "answer": answer,
+                "grounded": grounded,
+                "relevant": relevant,
+            }
+        )
 
     g_rate = groundedness_rate(grounded_verdicts)
     h_rate = hallucination_rate(grounded_verdicts)

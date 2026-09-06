@@ -8,17 +8,17 @@ Responde en español, de forma concisa (2-3 oraciones):
 """
 
 GROUNDEDNESS_PROMPT = """
+¿Cada afirmación de la "Respuesta a evaluar" de abajo está directamente respaldada por el Contexto de abajo? Responde TRUE o FALSE.
+
 Contexto: {context}
 
 Respuesta a evaluar: {answer}
-
-¿Cada afirmación de la "Respuesta a evaluar" está directamente respaldada por el Contexto de arriba? Responde con exactamente una palabra: SÍ o NO.
 """
 
 RELEVANCE_PROMPT = """
+¿La "Respuesta a evaluar" de abajo realmente aborda la Pregunta de abajo, sin importar si el contenido es correcto? Responde TRUE o FALSE.
+
 Pregunta: {question}
 
-Respuesta: {answer}
-
-¿La Respuesta realmente aborda la Pregunta (sin importar si es correcta)? Responde con exactamente una palabra: SÍ o NO.
+Respuesta a evaluar: {answer}
 """
