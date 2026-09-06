@@ -11,6 +11,34 @@ La etapa LLM del pipeline principal (`experiments/evaluation/run.py`) sigue paus
 - **Fix:** se añadió `collection: str = COLLECTION` a `base_search` y usar `collection="exp_judge_benchmark"` en el benchmark, sin alterar el default. El cambio corrige el uso forzado de `exp_reranking` (inexistente; la colección real es `reranking`) sin importar quién invoque la función.
 - Cualquier **Ollama nativo (**`systemd`**)** que ocupe `11434` debe detenerse antes de levantar el contenedor, para asegurar que las peticiones lleguen a la instancia de Docker. Tras suspender/reanudar el host, verificar también red y DNS (`NetworkSettings.Networks`), ya que el healthcheck puede seguir OK aunque exista pérdida de conectividad. Los modelos validados con `docker exec ollama ollama list`.
 - **Fix:** se configuró el runtime NVIDIA en Docker (`nvidia-ctk runtime configure --runtime=docker`), reiniciar el daemon y declarar `deploy.resources.reservations.devices` con `driver: nvidia`. Se añadieron `OLLAMA_MAX_LOADED_MODELS=1` y `OLLAMA_KEEP_ALIVE=30s` para no mantener ambos modelos en VRAM. El problema se identificaba porque `ollama ps` mostraba `100% CPU` y el arranque reportaba `total_vram="0 B"`: el toolkit estaba instalado, pero no registrado en Docker.
+  ```yaml
+  ## docker-compose.yml 
+  # servicio ollama
+  ollama:
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "30s"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # servicio para descargar el juez
+  ollama-pull-deepseek:
+    restart: no
+    image: ollama/ollama:latest
+    container_name: deepseek-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["ollama"]
+    command: ["pull", "deepseek-r1:7b"]
+    environment:
+      OLLAMA_HOST: "ollama:11434"
+  ```
 - Script [ollama-judge-evaluation.py](experiments/evaluation/benchmark-models/ollama-judge-evaluation.py) inserta la raíz del repo en `sys.path`; requiere correrse con la raíz como `cwd`. Las respuestas base se cachean en `results/base_answers_exp_N.csv` apenas se generan. Salida en pandas/CSV, separador `;`.
 - `generate()` (`shared/llm.py`) para las llamadas de juicio usa `num_predict=1500` (DeepSeek-R1 antepone razonamiento visible antes de la respuesta; con poco margen se corta sin concluir) y `repeat_penalty=1.3` (evita que quede repitiendo el mismo token en loop).
 
@@ -22,6 +50,29 @@ La etapa LLM del pipeline principal (`experiments/evaluation/run.py`) sigue paus
 - **Se invirtió** el orden del prompt: de **Contexto/Respuesta → pregunta de evaluación** a **pregunta de evaluación → Contexto/Respuesta**. Con el orden original, `llama3.2:3b` devolvía `FALSE` sistemáticamente, incluso cuando la respuesta era una copia literal del contexto. Con la pregunta primero, razonaba correctamente. **DeepSeek no mostró sensibilidad al orden.**
 - **Se simplificó** la instrucción de formato de `"No expliques tu razonamiento. Responde ÚNICAMENTE con la palabra completa TRUE o FALSE, sin abreviar, sin puntuación ni texto adicional"` a `"Responde TRUE o FALSE"`. La versión elaborada sesgaba a `llama3.2:3b` hacia `FALSE` independientemente del contenido, incluso en el mismo caso de control, produciendo un resultado incorrecto. Con la instrucción simple, **DeepSeek mantuvo conclusiones correctas**: razonó brevemente y terminó en `TRUE`/`FALSE`. La versión elaborada no aportaba valor al segundo juez y perjudicaba al primero.
 - Se reemplazó el parseo `raw.startswith("SI")`, que estaba anclado al inicio y era sensible a mayúsculas/tildes, por `parse_verdict()` con `re.search(r"TRUE|FALSE", raw, re.IGNORECASE)`, que buscaba `TRUE`/`FALSE` en cualquier parte del texto. Esto permitió tolerar razonamientos previos del modelo sin exigir que la respuesta fuera una única palabra exacta al inicio. Si no se encontraba ningún veredicto, se contabilizaba como `FALSE` y se registraba en logs; ocurrió en una fracción pequeña de llamadas, principalmente con DeepSeek cuando el razonamiento no terminaba a tiempo.
+
+```diff
+ GROUNDEDNESS_PROMPT = """
++¿Cada afirmación de la "Respuesta a evaluar" de abajo está directamente respaldada por el Contexto de abajo? Responde TRUE o FALSE.
++
+ Contexto: {context}
+
+ Respuesta a evaluar: {answer}
+-
+-¿Cada afirmación de la "Respuesta a evaluar" está directamente respaldada por el Contexto de arriba? Responde con exactamente una palabra: SÍ o NO.
+ """
+
+ RELEVANCE_PROMPT = """
+-Pregunta: {question}
++¿La "Respuesta a evaluar" de abajo realmente aborda la Pregunta de abajo, sin importar si el contenido es correcto? Responde TRUE o FALSE.
+
+-Respuesta: {answer}
++Pregunta: {question}
+
+-¿La Respuesta realmente aborda la Pregunta (sin importar si es correcta)? Responde con exactamente una palabra: SÍ o NO.
++Respuesta a evaluar: {answer}
+ """
+```
 
 
 
