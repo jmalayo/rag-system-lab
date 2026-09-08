@@ -54,7 +54,7 @@ La etapa LLM del pipeline principal (`experiments/evaluation/run.py`) sigue paus
   | q025 | grounded | grounded (thinking 5947→11521) | no |
   | q030 | grounded | grounded (thinking 6811→13499) | no |
 
-  Las 3 que no resuelven escalan su `thinking` casi proporcional al presupuesto (~2x con el doble de `num_predict`) — es necesidad real de más tokens, no un tope arbitrario, así que se documentan como límite conocido del juez en vez de seguir subiendo `num_predict`.
+  Las 3 que no resuelven escalan su `thinking` casi proporcional al presupuesto (~2x con el doble de `num_predict`) — es necesidad real de más tokens, no un tope arbitrario, así que se documentan como límite conocido del juez en vez de seguir subiendo `num_predict`. Confirmado con la corrida completa (`34/34`, [exp_6/llama_base](./benchmark-models/results/exp_6/llama_base/results_summary.csv)): fallo 6/34 (17.6%) con `1500` baja a exactamente 3/34 (8.8%) con `3000`, groundedness limpio DeepSeek **80.6%** (n=31).
 
 
 
