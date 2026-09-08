@@ -40,7 +40,21 @@ La etapa LLM del pipeline principal (`experiments/evaluation/run.py`) sigue paus
       OLLAMA_HOST: "ollama:11434"
   ```
 - Script [ollama-judge-evaluation.py](experiments/evaluation/benchmark-models/ollama-judge-evaluation.py) inserta la raíz del repo en `sys.path`; requiere correrse con la raíz como `cwd`. Las respuestas base se cachean en `results/base_answers_exp_N.csv` apenas se generan. Salida en pandas/CSV, separador `;`.
-- `generate()` (`shared/llm.py`) para las llamadas de juicio usa `num_predict=1500` (DeepSeek-R1 antepone razonamiento visible antes de la respuesta; con poco margen se corta sin concluir) y `repeat_penalty=1.3` (evita que quede repitiendo el mismo token en loop).
+- `generate()` (`shared/llm.py`) para las llamadas de juicio usa `repeat_penalty=1.3` (evita que quede repitiendo el mismo token en loop).
+- **Fix:** `num_predict` de `judge_answers()` subido de 1500 a 3000. Con 1500, DeepSeek gastaba todo el presupuesto en su bloque de razonamiento oculto (`thinking`) antes de escribir el veredicto, dejando `response` vacío (`done_reason: "length"`) — 26.5% de los juicios en `exp_5` (DeepSeek autojuzgándose) y 17.6% juzgando a Llama. Con 3000 el fallo bajó a la mitad en ambas direcciones (11.8% y ~8.8%). Estos casos quedan marcados con columnas `{judge}_asw_valido` en `per_question_judge_verdicts_*.csv`, y son reproducibles con [juzge-evaluate-errors.py](experiments/evaluation/benchmark-models/juzge-evaluate-errors.py).
+
+  Detalle de las 6 preguntas que fallaban con 1500 (base Llama, juzgadas por DeepSeek — [reporte_num_predict_1500_vs_3000.csv](./benchmark-models/results/reporte_num_predict_1500_vs_3000.csv)):
+
+  | Pregunta | Falla con 1500 | Con 3000 | Resuelto |
+  |---|---|---|---|
+  | q002 | relevant | válido | sí |
+  | q012 | grounded | grounded (thinking 6624→13269) | no |
+  | q015 | relevant | válido | sí |
+  | q023 | grounded | válido | sí |
+  | q025 | grounded | grounded (thinking 5947→11521) | no |
+  | q030 | grounded | grounded (thinking 6811→13499) | no |
+
+  Las 3 que no resuelven escalan su `thinking` casi proporcional al presupuesto (~2x con el doble de `num_predict`) — es necesidad real de más tokens, no un tope arbitrario, así que se documentan como límite conocido del juez en vez de seguir subiendo `num_predict`.
 
 
 
@@ -84,6 +98,18 @@ llama           llama3.2:3b     self-judging     2.9%    97.1%     32.4%    2182
 deepseek        deepseek-r1:7b  cross-judging    76.5%    23.5%     73.5%   12773.3
 ```
 
-`[results_summary_exp_4.csv](./benchmark-models/results/results_summary_exp_4.csv)`. Acuerdo entre jueces: **26.5%** en groundedness, **52.9%** en relevancia — bajo, y esta vez es señal real, no un artefacto de instrumentación: los dos jueces reparten juicios positivos y negativos (no es "los dos dicen que no" como en corridas anteriores).
+`[results_summary.csv](./benchmark-models/results/exp_4/llama_base/results_summary.csv)` · `[per_question_judge_verdicts.csv](./benchmark-models/results/exp_4/llama_base/per_question_judge_verdicts.csv)`. Acuerdo entre jueces: **26.5%** en groundedness, **52.9%** en relevancia — bajo, y esta vez es señal real, no un artefacto de instrumentación: los dos jueces reparten juicios positivos y negativos (no es "los dos dicen que no" como en corridas anteriores). *(Corrida con `num_predict=1500`; no auditada todavía con `_asw_valido` — pendiente.)*
 
-**Lectura**: Llama, juzgándose a sí mismo, es mucho más estricto que DeepSeek juzgándolo desde afuera (2.9% vs. 76.5% en groundedness). Es la comparación que buscaba este benchmark, pero con una sola dirección de cruce (Llama nunca juzga respuestas de DeepSeek) no se puede aislar todavía si es **self-enhancement bias invertido** (auto-crítica) o simplemente que Llama es un juez más duro/menos capaz en general, sin importar de quién sea la respuesta — haría falta una tercera corrida (Llama juzgando respuestas generadas por otro modelo) para separar ambas explicaciones.
+Llama, juzgándose a sí mismo, es mucho más estricto que DeepSeek juzgándolo desde afuera (2.9% vs. 76.5% en groundedness). Con una sola dirección de cruce no se podía aislar si es **self-enhancement bias invertido** (auto-crítica) o simplemente que Llama es un juez más duro en general — hacía falta la dirección opuesta.
+
+## Resultado (`exp_6`, 34 preguntas, respuestas de `deepseek-r1:7b`)
+
+```
+                judge_model             mode  grounded  halluc.  relevant    p50 ms
+deepseek        deepseek-r1:7b  self-judging     70.6%    29.4%     82.4%   13078.1
+llama           llama3.2:3b    cross-judging      8.8%    91.2%     41.2%    2201.2
+```
+
+`[results_summary.csv](./benchmark-models/results/exp_6/deepseek_base/results_summary.csv)` · `[per_question_judge_verdicts.csv](./benchmark-models/results/exp_6/deepseek_base/per_question_judge_verdicts.csv)`. Filtrando las filas inválidas (`_asw_valido=False`, ver fix de `num_predict` arriba), el número limpio sube: DeepSeek self-judging **80.0%** (n=30), Llama cross-judging **9.1%** (n=33). Las 4 filas que siguen inválidas incluso con `num_predict=3000` están diagnosticadas en `[judge_errors_deepseek.csv](./benchmark-models/results/exp_6/deepseek_base/judge_errors_deepseek.csv)`.
+
+**Lectura final**: con las dos direcciones completas, el patrón se sostiene sin importar quién escribió la respuesta — Llama se mantiene duro (2.9% autojuzgándose, 8.8-9.1% juzgando a DeepSeek) y DeepSeek se mantiene permisivo (76.5% juzgando a Llama, 70.6-80.0% autojuzgándose). La brecha entre jueces (~3-9% vs. ~70-80%) es muchísimo mayor que la brecha por autor dentro de cada juez, lo que descarta el self-enhancement bias como explicación principal: **Llama es sistemáticamente un juez más estricto que DeepSeek**, independientemente de quién generó la respuesta evaluada.

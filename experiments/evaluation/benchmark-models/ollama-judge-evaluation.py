@@ -40,18 +40,19 @@ JUDGES = {
     "llama": BASE_MODEL
 }
 
+ANSWER_MODEL = BASE_MODEL
+
 VERDICT_RE = re.compile(r"TRUE|FALSE", re.IGNORECASE)
 
-
-def parse_verdict(raw: str) -> bool:
+def parse_verdict(raw: str) -> tuple[bool, bool]:
 
     match = VERDICT_RE.search(raw)
 
     if not match:
         print(f"  [!] Veredicto no reconocido, se toma como FALSE: {raw[:80]!r}", flush=True)
-        return False
+        return False, False
 
-    return match.group().upper() == "TRUE"
+    return match.group().upper() == "TRUE", True
 
 
 def retrieve_context(client, bm25: BM25Index, question: str) -> list[dict]:
@@ -75,14 +76,13 @@ def build_answers(client, bm25, questions: list[dict], answers_path: Path) -> li
         t0 = time.perf_counter()
         answer = generate(
             ANSWER_PROMPT.format(context=context_text, question=q["question"]),
-            model=BASE_MODEL,
-            num_predict=500,
-            repeat_penalty=1,
-            stop=["\n"],
+            model=ANSWER_MODEL,
+            num_predict=1500,
+            repeat_penalty=1.3
         )
         elapsed = time.perf_counter() - t0
 
-        print(f"  [{i}/{len(questions)}] {q['id']} ({BASE_MODEL}): {elapsed:.1f}s", flush=True)
+        print(f"  [{i}/{len(questions)}] {q['id']} ({ANSWER_MODEL}): {elapsed:.1f}s", flush=True)
 
         rows.append(
             {
@@ -128,11 +128,15 @@ def judge_answers(rows: list[dict], judge_model: str) -> tuple[list[dict], list[
 
         print(f"  [{i}/{len(rows)}] {row['id']} ({judge_model}): {elapsed:.1f}s", flush=True)
 
+        grounded_verdict, grounded_valid = parse_verdict(grounded_raw)
+        relevant_verdict, relevant_valid = parse_verdict(relevant_raw)
+
         verdicts.append(
             {
                 "id": row["id"],
-                "grounded": parse_verdict(grounded_raw),
-                "relevant": parse_verdict(relevant_raw),
+                "grounded": grounded_verdict,
+                "relevant": relevant_verdict,
+                "asw_valido": grounded_valid and relevant_valid,
             }
         )
 
@@ -146,7 +150,7 @@ def summarize(judge_name: str, judge_model: str, verdicts: list[dict], latencies
     g_rate = sum(grounded) / len(grounded) if grounded else 0.0
     r_rate = sum(relevant) / len(relevant) if relevant else 0.0
 
-    mode = "self-judging" if judge_model == BASE_MODEL else "cross-judging"
+    mode = "self-judging" if judge_model == ANSWER_MODEL else "cross-judging"
 
     return {
         "judge": judge_name,
@@ -180,7 +184,7 @@ def main():
 
     answers_path = RESULTS_DIR / f"base_answers_{exp}.csv"
 
-    reuse_answers = True
+    reuse_answers = False
 
     if reuse_answers:
         print(f"Reusando respuestas base cacheadas en {answers_path}", flush=True)
@@ -201,7 +205,7 @@ def main():
 
         answers_path.parent.mkdir(parents=True, exist_ok=True)
 
-        print(f"Generando {len(questions)} respuestas base con {BASE_MODEL}...", flush=True)
+        print(f"Generando {len(questions)} respuestas base con {ANSWER_MODEL}...", flush=True)
         
         rows = build_answers(client, bm25, questions, answers_path)
 
@@ -230,7 +234,8 @@ def main():
         judge_df = pd.DataFrame(verdicts).rename(
             columns={
                 "grounded": f"grounded_{judge_name}",
-                "relevant": f"relevant_{judge_name}"
+                "relevant": f"relevant_{judge_name}",
+                "asw_valido": f"{judge_name}_asw_valido",
             }
         )
 
@@ -244,7 +249,7 @@ def main():
     )
 
     summary_df = pd.DataFrame(summaries)
-    summary_df.insert(0, "base_model", BASE_MODEL)
+    summary_df.insert(0, "base_model", ANSWER_MODEL)
     summary_df.insert(1, "n_questions", len(questions))
 
     summary_df.to_csv(

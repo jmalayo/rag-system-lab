@@ -1,0 +1,5 @@
+question;grounded fails;relevant fails;thinking grounded (chars);thinking relevant (chars)
+q005;valido;valido;2715;837
+q009;(length);valido;14224;354
+q018;(length);valido;14945;2183
+q023;(length);valido;11892;1013

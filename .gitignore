@@ -21,5 +21,3 @@ embedder_cache/
 shared/corpus/music-tagger/
 
 definition
-
-experiments/evaluation/benchmark-models/results/exp_*
