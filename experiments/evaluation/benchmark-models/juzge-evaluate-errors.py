@@ -76,7 +76,7 @@ def diagnose(answers_by_id: dict, judge_model: str) -> dict:
 
 def main():
 
-    run_dir = RESULTS_DIR / "exp_5" / "llama_base"
+    run_dir = RESULTS_DIR / "exp_5" / "deepseek_base"
     judge_name = "deepseek"
 
     answers_path = run_dir / "base_answers.csv"

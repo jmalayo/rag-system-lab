@@ -40,7 +40,7 @@ JUDGES = {
     "llama": BASE_MODEL
 }
 
-ANSWER_MODEL = BASE_MODEL
+ANSWER_MODEL = JUDGE_MODEL
 
 VERDICT_RE = re.compile(r"TRUE|FALSE", re.IGNORECASE)
 
@@ -113,13 +113,13 @@ def judge_answers(rows: list[dict], judge_model: str) -> tuple[list[dict], list[
         grounded_raw = generate(
             GROUNDEDNESS_PROMPT.format(context=row["context"], answer=row["answer"]),
             model=judge_model,
-            num_predict=3000,
+            num_predict=1500,
             repeat_penalty=1.3,
         )
         relevant_raw = generate(
             RELEVANCE_PROMPT.format(question=row["question"], answer=row["answer"]),
             model=judge_model,
-            num_predict=3000,
+            num_predict=1500,
             repeat_penalty=1.3,
         )
 
@@ -180,7 +180,7 @@ def main():
 
     questions = load_questions()
 
-    exp = "exp_6"
+    exp = "exp_5"
 
     answers_path = RESULTS_DIR / f"base_answers_{exp}.csv"
 

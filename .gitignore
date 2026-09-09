@@ -19,5 +19,6 @@ shared/.qdrant_local/
 embedder_cache/
 
 shared/corpus/music-tagger/
+experiments/evaluation/benchmark-models/results/exp_*
 
 definition
