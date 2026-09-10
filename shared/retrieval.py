@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from shared.settings import settings
 import math
-import re
+import functools
+
 from collections import Counter
 
 from qdrant_client import QdrantClient
@@ -28,17 +29,28 @@ def dense_search(client: QdrantClient, collection_name: str, query: str, k: int)
 
 def fetch_all_chunks(client: QdrantClient, collection_name: str) -> list[dict]:
 
-    points, _ = client.scroll(
-        collection_name=collection_name,
-        scroll_filter=None,
-        limit=1000000,
-        with_payload=True
-    )
+    limit_batch = 200
+    ls_records = []
+    next_offset = None
 
-    return [
-        p.payload 
-            for p in points
-    ]
+    while True:
+        records, next_offset = client.scroll(
+            collection_name=collection_name,
+            scroll_filter=None,
+            limit=limit_batch,
+            with_vectors=False,
+            with_payload=True,
+            offset=next_offset
+        )
+
+        ls_records.extend(records)
+
+        if next_offset is None:
+            
+            return [
+                rc.payload 
+                    for rc in ls_records
+            ]
 
 class BM25Index:
 
@@ -156,22 +168,27 @@ def reciprocal_rank_fusion(
         } for cid in fused_ids
     ]
 
-def rerank(question: str, candidates: list[dict], top_k: int) -> list[dict]:
+@functools.lru_cache(maxsize=1)
+def get_rerank():
 
     from sentence_transformers import CrossEncoder
 
+    return CrossEncoder(settings.cross_encoder_model)
+
+def rerank(question: str, candidates: list[dict], top_k: int) -> list[dict]:
+
     if not candidates:
         return []
+    
+    reranker = get_rerank()
 
-    _reranker = CrossEncoder(settings.cross_encoder_model)
-
-    scores = _reranker.predict(
+    scores = reranker.predict(
         [
             (question, c["text"]) 
                 for c in candidates
         ],
         batch_size=16,
-        show_progress_bar=True
+        show_progress_bar=False
     )
 
     order = sorted(range(len(candidates)), key=lambda i: scores[i], reverse=True)[:top_k]

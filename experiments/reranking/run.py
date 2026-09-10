@@ -12,7 +12,7 @@ from qdrant_client import QdrantClient
 
 POOL_SIZE = 20  # cuántos candidatos trae el retriever base antes de rerankear
 TOP_K = 5
-COLLECTION = "reranking"
+COLLECTION = "exp_reranking"
 OUT_DIR = Path(__file__).resolve().parent
 
 _best_chunking_run = get_best_run("chunking")
@@ -26,18 +26,19 @@ def base_search(
     client: QdrantClient = None, 
     bm25: BM25Index = None, 
     question: str = None,
+    collection: str = COLLECTION,
     k: int = POOL_SIZE
 ) -> list[dict]:
 
     if BEST_METHOD == "dense":
-        return dense_search(client, COLLECTION, question, k)
+        return dense_search(client, collection, question, k)
 
     if BEST_METHOD == "bm25":
         return bm25.search(question, k)
 
     if BEST_METHOD == "hybrid_rrf":
 
-        d = dense_search(client, COLLECTION, question, k)
+        d = dense_search(client, collection, question, k)
         b = bm25.search(question, k)
 
         return reciprocal_rank_fusion([d, b], top_k=k)
@@ -81,7 +82,7 @@ def main():
         candidates = base_search(
             client=client, 
             bm25=bm25, 
-            query=q["question"], 
+            question=q["question"], 
             k=POOL_SIZE
         )
 

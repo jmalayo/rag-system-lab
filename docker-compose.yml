@@ -8,6 +8,7 @@ services:
 
   embedder:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    container_name: text-embedder
     ports:
       - "1010:80"
     volumes:
@@ -24,6 +25,16 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_KEEP_ALIVE: "30s"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/11434' || exit 1"]
       interval: 10s
@@ -42,6 +53,18 @@ services:
     environment:
       OLLAMA_HOST: "ollama:11434"
 
+  ollama-pull-deepseek:
+    restart: no
+    image: ollama/ollama:latest
+    container_name: deepseek-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["ollama"]
+    command: ["pull", "deepseek-r1:7b"]
+    environment:
+      OLLAMA_HOST: "ollama:11434"
+
   mlflow-server:
     restart: unless-stopped
     image: ghcr.io/mlflow/mlflow:v3.15.2
@@ -56,9 +79,6 @@ services:
       --port 5000
       --backend-store-uri sqlite:////mlflow/mlflow.db
       --default-artifact-root /mlflow/mlartifacts
-    environment:
-      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
-      - MLFLOW_EXPERIMENT_NAME=${MLFLOW_EXPERIMENT_NAME}
 
 volumes:
   qdrant_storage:

@@ -1,0 +1,7 @@
+question;grounded_fails_1500;grounded_fails_3000;relevant_fails_1500;relevant_fails_3000;thinking_grounded_chars_1500;thinking_grounded_chars_3000;thinking_relevant_chars_1500;thinking_relevant_chars_3000;solved_using_3000
+q002;valido;valido;(length);valido;696;696;5661;6491;True
+q012;(length);(length);valido;valido;6624;13269;1376;1376;False
+q015;valido;valido;(length);valido;365;365;7345;10102;True
+q023;(length);valido;valido;valido;5919;8020;1636;1636;True
+q025;(length);(length);valido;valido;5947;11521;1862;1862;False
+q030;(length);(length);valido;valido;6811;13499;812;812;False

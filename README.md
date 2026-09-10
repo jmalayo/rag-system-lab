@@ -38,7 +38,7 @@ Todo vive en `shared/eval/metrics.py` (métricas) y `shared/retrieval.py` (scori
 
 - **Experimento 1 (chunking)** — resuelto. Reporte en `experiments/chunking/EXP_CHUNKING_REPORT.md`, resultado del barrido en `experiments/chunking/results/best_config.json`. Mejor config: `chunk_size=512`, `overlap=25%` → `recall@5=0.471`.
 - **Experimento 2 (hybrid search)** — resuelto. Reporte en `experiments/hybrid-search/EXP_RRF_REPORT.md`, resultados en `experiments/hybrid-search/results/results.json`. Mejor método: `hybrid_rrf` → `recall@5=0.529` (vs. `dense=0.471`, delta `+0.059`).
-- **Experimento 3 (reranking)** — resuelto. Reporte en `experiments/reranking/EXP_RERANK_REPORT.md`, resultados en `experiments/reranking/results/results.json`. Cross-encoder sobre `hybrid_rrf`: `recall@5` 0.529→0.588 (+0.059), `mrr@5` 0.328→0.393 (+0.065), a costa de +957.6ms en p95 — se adopta el reranker.
+- **Experimento 3 (reranking)** — resuelto. Reporte en `experiments/reranking/EXP_RERANK_REPORT.md`, resultados en `experiments/reranking/results/results.json`. Cross-encoder sobre `hybrid_rrf`: `recall@5` 0.529→0.588 (+0.059), `mrr@5` 0.328→0.393 (+0.065), a costa de +22.7ms en p95 — se adopta el reranker.
 
 La carpeta se renombró de `hybrid-serach` a `hybrid-search` (typo corregido) y los resultados de cada experimento ahora viven en su propia subcarpeta `results/` en vez de sueltos junto al `run.py`.
 

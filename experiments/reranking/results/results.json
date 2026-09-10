@@ -14,9 +14,9 @@
         0.7059
       ],
       "mrr@5": 0.3279,
-      "p50_ms": 19.6,
-      "p95_ms": 41.2,
-      "mean_ms": 23.9
+      "p50_ms": 13.4,
+      "p95_ms": 23.1,
+      "mean_ms": 14.9
     },
     {
       "config": "reranked",
@@ -26,12 +26,12 @@
         0.7353
       ],
       "mrr@5": 0.3926,
-      "p50_ms": 891.7,
-      "p95_ms": 998.8,
-      "mean_ms": 918.9
+      "p50_ms": 34.4,
+      "p95_ms": 45.8,
+      "mean_ms": 150.9
     }
   ],
   "delta_recall@5": 0.0588,
-  "delta_p95_ms": 957.6,
+  "delta_p95_ms": 22.7,
   "negative_finding": false
 }
