@@ -5,7 +5,7 @@ import hashlib
 import re
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -33,6 +33,7 @@ class Chunk:
     library: str
     text: str
     chunk_index: int
+    tables: list[dict] = field(default_factory=list)
 
 def validate_chunk(text, model_tokenizer, max_tokens):
 
@@ -74,7 +75,12 @@ def corpus_hash(docs: list[SourceDoc]) -> str:
     
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
-def chunk_documents(docs: list[SourceDoc], chunk_size: int, chunk_overlap: int) -> list[Chunk]:
+def chunk_documents(
+    docs: list[SourceDoc], 
+    tables: list[dict], 
+    chunk_size: int, 
+    chunk_overlap: int
+) -> list[Chunk]:
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
@@ -88,22 +94,68 @@ def chunk_documents(docs: list[SourceDoc], chunk_size: int, chunk_overlap: int) 
 
     for doc in docs:
 
-        pieces = splitter.split_text(doc.text)
+        doc_tables = [
+            t for t in tables
+                if t["doc_id"] == doc.doc_id
+        ]
 
-        for i, piece in enumerate(pieces):
-            
-            validated_piece = validate_chunk(piece, embedder.tokenizer, embedder.max_seq_length)
+        marked_text = doc.text
+
+        for idx, t in enumerate(doc_tables):
+            marked_text = marked_text.replace(t["text_content"], f"[[TABLE:{idx}]]")
+    
+        marked_text = re.sub(r"\n+(\[\[TABLE:\d+\]\])", r" \1", marked_text)
+        marked_text = re.sub(r"(\[\[TABLE:\d+\]\])\n+", r"\1 ", marked_text)
+
+        splits = splitter.split_text(marked_text)
+
+        pending_tables = []
+
+        for i, split in enumerate(splits):
+
+            matches = re.findall(r"\[\[TABLE:(\d+)\]\]", split)
+
+            tables_idx = []
+
+            for m in matches:
+                tables_idx.append(int(m))
+
+            piece_tables = [doc_tables[m] for m in tables_idx]
+
+            text = re.sub(r"\[\[TABLE:\d+\]\]", "", split).strip()
+
+            if not text:
+                pending_tables.extend(piece_tables)
+                
+                continue
+
+            validated_piece = validate_chunk(text, embedder.tokenizer, embedder.max_seq_length)
 
             chunks.append(
                 Chunk(
+                    chunk_index=i,
                     chunk_id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{doc.doc_id}#{i}")),
                     doc_id=doc.doc_id,
                     library=doc.library,
                     text=validated_piece,
-                    chunk_index=i,
+                    tables=pending_tables + piece_tables,
                 )
             )
-            
+
+            pending_tables = []
+
+        if pending_tables:
+
+            doc_chunks = [c for c in chunks if c.doc_id == doc.doc_id]
+
+            if doc_chunks:
+                doc_chunks[-1].tables.extend(pending_tables)
+            else:
+                logger.warning(
+                    f"{doc.doc_id}: el doc quedo compuesto solo por tablas, "
+                    "sin ningun chunk de texto al cual adjuntarlas"
+                )
+
     return chunks
     
 class RemoteEmbedder:
@@ -191,7 +243,7 @@ def get_current_config(client: QdrantClient, collection_name: str) -> dict | Non
     return {
         k: v 
             for k, v in points[0].payload.items() 
-                if k not in ["chunk_id", "text", "doc_id", "library", "chunk_index"]
+                if k not in ["chunk_id", "text", "doc_id", "library", "chunk_index", "tables"]
     }
 
 def build_qdrant_client(local_path: str | None = None) -> QdrantClient:
@@ -251,6 +303,7 @@ def index_chunks(
                     "doc_id": c.doc_id,
                     "library": c.library,
                     "chunk_index": c.chunk_index,
+                    "tables": c.tables,
                     **config,
                 },
             )

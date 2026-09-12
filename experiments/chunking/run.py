@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import requests
 from shared.eval.data import load_questions
 from shared.eval.metrics import bootstrap_ci, is_chunk_correct, latency_summary, mrr, recall_at_k
 from shared.ingest import (
+    SourceDoc,
     build_qdrant_client,
     chunk_documents,
     corpus_hash,
@@ -24,18 +26,19 @@ from shared.tracking import log_metrics, tracked_run
 OVERLAP_FRACS = [0.0, 0.10, 0.25]
 SAFETY_MARGIN = 0.85
 K_MAX = 10
-COLLECTION = qualified_collection_name("exp_chunking_dynamic")
+EXP_NAME="exp_chunking_dynamic_tables"
+COLLECTION = qualified_collection_name(EXP_NAME)
 
 logger = logging.getLogger(__name__)
 
 OUT_DIR = Path(__file__).resolve().parent
 
-def run_config(docs, questions, chunk_size: int, overlap_frac: int):
+def run_config(docs, tables, questions, chunk_size: int, overlap_frac: int):
 
     overlap = int(chunk_size * overlap_frac)
 
     client = build_qdrant_client()
-    chunks = chunk_documents(docs, chunk_size, overlap)
+    chunks = chunk_documents(docs, tables, chunk_size, overlap)
     n_indexed = index_chunks(
         client,
         chunks,
@@ -44,7 +47,7 @@ def run_config(docs, questions, chunk_size: int, overlap_frac: int):
             "chunk_size": chunk_size,
             "chunk_overlap": overlap,
             "corpus_hash": corpus_hash(docs),
-            "experiment": "exp_chunking",
+            "experiment": EXP_NAME,
         },
     )
 
@@ -82,6 +85,41 @@ def run_config(docs, questions, chunk_size: int, overlap_frac: int):
     }
 
     return row
+
+def get_tables_from_docs(doc: SourceDoc) -> tuple[list[dict], str]:
+
+    import markdown
+
+    blocks = re.split(r"\n{2,}", doc.text)
+
+    tables = []
+
+    idx = 0
+    for block in blocks:
+
+        if not block.strip():
+            continue
+
+        html = markdown.markdown(block, extensions=["tables"])
+
+        if "<table" in html:
+             
+            tables.append({
+                "text_content": block,
+                "doc_id": doc.doc_id,
+                "type": "Table"
+            })
+
+            idx += 1
+
+    text_without_tables = doc.text
+
+    for tb in tables:
+        text_without_tables = text_without_tables.replace(tb["text_content"], "")
+
+    logger.info(f"{doc.doc_id}: {idx} tabla(s) encontrada(s)")
+
+    return tables, text_without_tables
 
 def count_tokens(text: str) -> int:
 
@@ -142,7 +180,17 @@ def main():
     docs = load_corpus()
     questions = load_questions()
 
-    chunk_sizes = evaluate_chunks_limits("".join(d.text for d in docs))
+    text_without_tables = []
+    tables = []
+
+    for doc in docs:
+        table, txt = get_tables_from_docs(doc)
+
+        text_without_tables.append(txt)
+        tables.extend(table)
+
+
+    chunk_sizes = evaluate_chunks_limits("".join(text_without_tables))
 
     logger.info(f"chunk sizes dinámicos: {chunk_sizes}")
 
@@ -153,7 +201,7 @@ def main():
         for overlap_frac in OVERLAP_FRACS:
 
             with tracked_run(
-                "chunking_dynamic",
+                EXP_NAME,
                 f"cs{chunk_size}_ov{int(overlap_frac*100)}",
                 {
                     "chunk_size": chunk_size, 
@@ -164,7 +212,7 @@ def main():
 
                 logger.info(f"Running config: chunk_size={chunk_size} overlap_frac={overlap_frac}")
 
-                row = run_config(docs, questions, chunk_size, overlap_frac)
+                row = run_config(docs, tables, questions, chunk_size, overlap_frac)
 
                 log_metrics(row)
 

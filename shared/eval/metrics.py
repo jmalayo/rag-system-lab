@@ -4,6 +4,7 @@ import re
 import statistics
 
 def _normalize(text: str) -> str:
+    text = re.sub(r"(\*\*|__)", "", text)
     return re.sub(r"\s+", " ", text).strip().lower()
 
 def is_chunk_correct(chunk: dict, question: dict) -> bool:
@@ -15,9 +16,17 @@ def is_chunk_correct(chunk: dict, question: dict) -> bool:
     if chunk.get("doc_id") not in valid_docs:
         return False
 
-    chunk_text = _normalize(chunk.get("text", ""))
+    texts = [chunk.get("text", "")]
+    
+    for t in chunk.get("tables", []):
+        texts.append(t.get("text_content", ""))
 
-    return any(_normalize(span) in chunk_text for span in question["gold_spans"])
+    chunk_text = _normalize(" ".join(texts))
+
+    return any(
+        _normalize(span) in chunk_text 
+            for span in question["gold_spans"]
+    )
 
 def calculate_hit5(results: dict, questions: list) -> list[float]:
 
